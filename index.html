@@ -21,13 +21,13 @@
     body {
       margin: 0;
       min-height: 100%;
+      background: #080d18;
       font-family:
         -apple-system,
         BlinkMacSystemFont,
         "Segoe UI",
         Arial,
         sans-serif;
-      background: #080d18;
     }
 
     body {
@@ -39,6 +39,11 @@
     button {
       font: inherit;
       cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: .7;
     }
 
     .app {
@@ -84,7 +89,7 @@
     }
 
     .stat {
-      min-width: 66px;
+      min-width: 68px;
       padding: 8px 10px;
       border-radius: 12px;
       background: rgba(255,255,255,.08);
@@ -258,6 +263,7 @@
 
       padding: 14px 16px;
       border-radius: 999px;
+
       background: rgba(0,0,0,.72);
 
       text-align: center;
@@ -288,22 +294,22 @@
     }
 
     .valid {
-      background: #0b3b24;
+      background: #0b4d2e;
     }
 
     .success {
-      background: #075e36;
+      background: #087443;
     }
 
     .used,
     .invalid,
     .error-screen {
-      background: #6f1010;
+      background: #851414;
     }
 
     .spinner {
-      width: 70px;
-      height: 70px;
+      width: 72px;
+      height: 72px;
       margin-bottom: 25px;
 
       border: 7px solid rgba(255,255,255,.2);
@@ -344,19 +350,21 @@
     .used .big-icon,
     .invalid .big-icon,
     .error-screen .big-icon {
-      color: #8c1616;
+      color: #a31212;
     }
 
     .small-title {
       margin-bottom: 9px;
+
       font-size: 13px;
       font-weight: 900;
       letter-spacing: 2px;
-      opacity: .7;
+
+      opacity: .75;
     }
 
     .screen h2 {
-      max-width: 600px;
+      max-width: 650px;
       margin: 0;
 
       font-size: clamp(36px, 10vw, 60px);
@@ -378,13 +386,15 @@
 
       font-size: 17px;
       line-height: 1.45;
-      opacity: .82;
+
+      opacity: .85;
     }
 
     .action {
       width: 100%;
       max-width: 500px;
       min-height: 76px;
+
       margin-top: 32px;
 
       border: 0;
@@ -401,6 +411,7 @@
       width: 100%;
       max-width: 500px;
       min-height: 60px;
+
       margin-top: 12px;
 
       border: 2px solid rgba(255,255,255,.45);
@@ -412,8 +423,25 @@
       font-size: 17px;
       font-weight: 800;
     }
+
+    /*
+     * IFRAME INVISIBLE
+     *
+     * Se utiliza únicamente para enviar
+     * la orden de confirmación a Apps Script.
+     */
+    #confirmFrame {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      left: -10000px;
+      top: -10000px;
+      border: 0;
+      visibility: hidden;
+    }
   </style>
 </head>
+
 
 <body>
 
@@ -427,11 +455,14 @@
 
     <div class="header-row">
 
-      <h1>🎟️ Invitados</h1>
+      <h1>
+        🎟️ Invitados
+      </h1>
 
       <div class="stats">
 
         <div class="stat">
+
           <span
             id="statDentro"
             class="stat-number"
@@ -440,9 +471,11 @@
           <span class="stat-label">
             DENTRO
           </span>
+
         </div>
 
         <div class="stat">
+
           <span
             id="statPendientes"
             class="stat-number"
@@ -451,6 +484,7 @@
           <span class="stat-label">
             PENDIENTES
           </span>
+
         </div>
 
       </div>
@@ -529,6 +563,8 @@
 </div>
 
 
+<!-- CARGANDO -->
+
 <div
   id="loading"
   class="screen loading"
@@ -537,15 +573,22 @@
   <div class="spinner"></div>
 
   <div class="small-title">
-    COMPROBANDO
+    UN MOMENTO
   </div>
 
   <h2 id="loadingText">
-    Validando invitación…
+    Comprobando invitación…
   </h2>
+
+  <div
+    id="loadingDetail"
+    class="detail"
+  ></div>
 
 </div>
 
+
+<!-- INVITACIÓN VÁLIDA -->
 
 <div
   id="valid"
@@ -592,6 +635,8 @@
 </div>
 
 
+<!-- ÉXITO -->
+
 <div
   id="success"
   class="screen success"
@@ -628,6 +673,8 @@
 
 </div>
 
+
+<!-- YA USADO -->
 
 <div
   id="used"
@@ -666,6 +713,8 @@
 </div>
 
 
+<!-- INVÁLIDO -->
+
 <div
   id="invalid"
   class="screen invalid"
@@ -698,6 +747,8 @@
 </div>
 
 
+<!-- ERROR -->
+
 <div
   id="errorScreen"
   class="screen error-screen"
@@ -708,7 +759,7 @@
   </div>
 
   <div class="small-title">
-    ERROR
+    REVISAR
   </div>
 
   <h2>
@@ -718,10 +769,7 @@
   <div
     id="errorText"
     class="detail"
-  >
-    Comprueba la conexión a Internet
-    e inténtalo de nuevo.
-  </div>
+  ></div>
 
   <button
     class="action"
@@ -739,7 +787,24 @@
 ></canvas>
 
 
+<!--
+  ESTE IFRAME ES LA CLAVE DE LA NUEVA VERSIÓN.
+
+  Envía la confirmación a Apps Script,
+  pero no necesitamos leer su respuesta.
+-->
+
+<iframe
+  id="confirmFrame"
+  name="confirmFrame"
+></iframe>
+
+
 <script>
+
+/************************************************************
+ * CONFIGURACIÓN
+ ************************************************************/
 
 const API_URL =
   'https://script.google.com/macros/s/AKfycbz91G2PcvTq6IULzpY7FEmDvVEgRKfA24cV4gtu5GzEpcAWfLue69m0gVNHXkXddtd2ww/exec';
@@ -754,24 +819,36 @@ const canvas =
 const ctx =
   canvas.getContext(
     '2d',
-    { willReadFrequently: true }
+    {
+      willReadFrequently: true
+    }
   );
 
 
 let stream = null;
+
 let escaneando = false;
+
 let procesando = false;
+
+let confirmando = false;
+
 let tokenActual = '';
+
 let invitadoActual = null;
 
 
 /************************************************************
- * API JSONP
+ * API DE LECTURA
+ *
+ * Para RESUMEN y VALIDAR seguimos utilizando JSONP,
+ * porque ya hemos demostrado que funciona correctamente.
  ************************************************************/
+
 function api(
   accion,
   parametros = {},
-  tiempoMaximo = 15000
+  timeoutMs = 12000
 ) {
 
   return new Promise(
@@ -782,7 +859,7 @@ function api(
         Date.now() +
         '_' +
         Math.floor(
-          Math.random() * 100000
+          Math.random() * 1000000
         );
 
 
@@ -792,64 +869,110 @@ function api(
         );
 
 
-      let terminado = false;
+      let finalizado =
+        false;
 
 
-      function limpiar() {
+      const timeout =
+        setTimeout(
+          function() {
 
-        if (terminado) {
-          return;
-        }
+            if (finalizado) {
+              return;
+            }
 
-        terminado = true;
+            finalizado = true;
 
-        clearTimeout(timeout);
+            limpiarScript();
+
+            reject(
+              new Error(
+                'TIMEOUT'
+              )
+            );
+
+          },
+          timeoutMs
+        );
+
+
+      function limpiarScript() {
+
+        clearTimeout(
+          timeout
+        );
+
 
         try {
-          delete window[callback];
+
+          delete window[
+            callback
+          ];
+
         } catch (e) {}
 
-        if (script.parentNode) {
+
+        if (
           script.parentNode
-            .removeChild(script);
+        ) {
+
+          script
+            .parentNode
+            .removeChild(
+              script
+            );
+
         }
 
       }
 
 
-      window[callback] =
+      window[
+        callback
+      ] =
         function(respuesta) {
 
-          if (terminado) {
+          if (finalizado) {
             return;
           }
 
-          const resultado =
-            respuesta;
 
-          limpiar();
+          finalizado =
+            true;
 
-          resolve(resultado);
+
+          limpiarScript();
+
+
+          resolve(
+            respuesta
+          );
 
         };
 
 
-      const timeout =
-        setTimeout(() => {
+      script.onerror =
+        function() {
 
-          if (terminado) {
+          if (finalizado) {
             return;
           }
 
-          limpiar();
+
+          finalizado =
+            true;
+
+
+          limpiarScript();
+
 
           reject(
             new Error(
-              'TIMEOUT'
+              'NETWORK'
             )
           );
 
-        }, tiempoMaximo);
+        };
 
 
       const params =
@@ -869,43 +992,32 @@ function api(
 
 
       /*
-       * Evita respuestas cacheadas.
+       * Evita caché del navegador.
        */
       params.set(
-        '_t',
+        '_',
         Date.now().toString()
       );
 
 
-      Object.keys(parametros)
-        .forEach(clave => {
+      Object
+        .keys(
+          parametros
+        )
+        .forEach(
+          function(clave) {
 
-          params.set(
-            clave,
-            String(
-              parametros[clave]
-            )
-          );
+            params.set(
+              clave,
+              String(
+                parametros[
+                  clave
+                ]
+              )
+            );
 
-        });
-
-
-      script.onerror =
-        function() {
-
-          if (terminado) {
-            return;
           }
-
-          limpiar();
-
-          reject(
-            new Error(
-              'NETWORK'
-            )
-          );
-
-        };
+        );
 
 
       script.src =
@@ -914,23 +1026,27 @@ function api(
         params.toString();
 
 
-      document.body.appendChild(
-        script
-      );
+      document
+        .body
+        .appendChild(
+          script
+        );
 
     }
   );
+
 }
 
 
 /************************************************************
  * RESUMEN
  ************************************************************/
+
 async function cargarResumen() {
 
   try {
 
-    const r =
+    const respuesta =
       await api(
         'resumen'
       );
@@ -941,7 +1057,7 @@ async function cargarResumen() {
         'statDentro'
       )
       .textContent =
-        r.dentro ?? '–';
+        respuesta.dentro ?? '–';
 
 
     document
@@ -949,14 +1065,14 @@ async function cargarResumen() {
         'statPendientes'
       )
       .textContent =
-        r.pendientes ?? '–';
+        respuesta.pendientes ?? '–';
 
 
-  } catch (e) {
+  } catch (error) {
 
     console.error(
-      'Error resumen:',
-      e
+      'No se pudo cargar el resumen:',
+      error
     );
 
   }
@@ -965,21 +1081,23 @@ async function cargarResumen() {
 
 
 /************************************************************
- * CÁMARA
+ * ABRIR CÁMARA
  ************************************************************/
+
 async function abrirCamara() {
 
   ocultarPantallas();
 
-  procesando = false;
+
+  procesando =
+    false;
 
 
   try {
 
     if (
       !navigator.mediaDevices ||
-      !navigator.mediaDevices
-        .getUserMedia
+      !navigator.mediaDevices.getUserMedia
     ) {
 
       throw new Error(
@@ -999,15 +1117,18 @@ async function abrirCamara() {
           video: {
 
             facingMode: {
-              ideal: 'environment'
+              ideal:
+                'environment'
             },
 
             width: {
-              ideal: 1920
+              ideal:
+                1920
             },
 
             height: {
-              ideal: 1080
+              ideal:
+                1080
             }
 
           }
@@ -1026,7 +1147,8 @@ async function abrirCamara() {
       .getElementById(
         'start'
       )
-      .style.display =
+      .style
+      .display =
         'none';
 
 
@@ -1038,7 +1160,8 @@ async function abrirCamara() {
       .getElementById(
         'overlay'
       )
-      .style.display =
+      .style
+      .display =
         'flex';
 
 
@@ -1046,11 +1169,13 @@ async function abrirCamara() {
       .getElementById(
         'instruction'
       )
-      .style.display =
+      .style
+      .display =
         'block';
 
 
-    escaneando = true;
+    escaneando =
+      true;
 
 
     requestAnimationFrame(
@@ -1060,9 +1185,13 @@ async function abrirCamara() {
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      error
+    );
+
 
     cerrarCamara();
+
 
     mostrarError(
       error.message ||
@@ -1074,13 +1203,19 @@ async function abrirCamara() {
 }
 
 
+/************************************************************
+ * LEER QR
+ ************************************************************/
+
 function leerFrame() {
 
   if (
     !escaneando ||
     procesando
   ) {
+
     return;
+
   }
 
 
@@ -1091,6 +1226,7 @@ function leerFrame() {
 
     canvas.width =
       video.videoWidth;
+
 
     canvas.height =
       video.videoHeight;
@@ -1131,12 +1267,15 @@ function leerFrame() {
       code.data
     ) {
 
-      procesando = true;
+      procesando =
+        true;
+
 
       tokenActual =
         String(
           code.data
-        ).trim();
+        )
+        .trim();
 
 
       cerrarCamara();
@@ -1145,11 +1284,16 @@ function leerFrame() {
       if (
         navigator.vibrate
       ) {
-        navigator.vibrate(80);
+
+        navigator.vibrate(
+          70
+        );
+
       }
 
 
       validarToken();
+
 
       return;
 
@@ -1168,18 +1312,12 @@ function leerFrame() {
 /************************************************************
  * VALIDAR QR
  ************************************************************/
+
 async function validarToken() {
 
-  document
-    .getElementById(
-      'loadingText'
-    )
-    .textContent =
-      'Validando invitación…';
-
-
-  mostrarPantalla(
-    'loading'
+  ponerCargando(
+    'Validando invitación…',
+    ''
   );
 
 
@@ -1195,349 +1333,15 @@ async function validarToken() {
       );
 
 
-    mostrarResultadoValidacion(
-      respuesta
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      'Error validando:',
-      error
-    );
-
-
-    mostrarError(
-      'No se pudo consultar la lista de invitados. Comprueba la conexión.'
-    );
-
-  }
-
-}
-
-
-/************************************************************
- * MOSTRAR RESULTADO DE VALIDACIÓN
- ************************************************************/
-function mostrarResultadoValidacion(
-  respuesta
-) {
-
-  ocultarPantallas();
-
-
-  if (
-    respuesta &&
-    respuesta.ok &&
-    respuesta.tipo ===
-      'VALIDO'
-  ) {
-
-    invitadoActual =
-      respuesta.invitado;
-
-
-    document
-      .getElementById(
-        'validGuest'
-      )
-      .textContent =
-        nombreCompleto(
-          invitadoActual
-        );
-
-
-    mostrarPantalla(
-      'valid'
-    );
-
-    return;
-
-  }
-
-
-  if (
-    respuesta &&
-    respuesta.tipo ===
-      'USADO'
-  ) {
-
-    invitadoActual =
-      respuesta.invitado;
-
-
-    document
-      .getElementById(
-        'usedGuest'
-      )
-      .textContent =
-        nombreCompleto(
-          invitadoActual
-        );
-
-
-    document
-      .getElementById(
-        'usedTime'
-      )
-      .textContent =
-        respuesta.fechaEntrada
-          ? 'Entrada registrada: ' +
-            respuesta.fechaEntrada
-          : 'Este acceso ya fue utilizado.';
-
-
-    mostrarPantalla(
-      'used'
-    );
-
-    return;
-
-  }
-
-
-  mostrarPantalla(
-    'invalid'
-  );
-
-}
-
-
-/************************************************************
- * CONFIRMAR ENTRADA
- ************************************************************/
-async function confirmarEntrada() {
-
-  const boton =
-    document.getElementById(
-      'confirmButton'
-    );
-
-
-  boton.disabled = true;
-
-  boton.textContent =
-    'REGISTRANDO…';
-
-
-  document
-    .getElementById(
-      'loadingText'
-    )
-    .textContent =
-      'Registrando entrada…';
-
-
-  mostrarPantalla(
-    'loading'
-  );
-
-
-  try {
-
-    const respuesta =
-      await api(
-        'confirmar',
-        {
-          token:
-            tokenActual
-        },
-        15000
-      );
-
-
-    /*
-     * Si recibimos correctamente
-     * la confirmación del servidor.
-     */
     if (
       respuesta &&
-      respuesta.ok &&
+      respuesta.ok === true &&
       respuesta.tipo ===
-        'ENTRADA_CONFIRMADA'
-    ) {
-
-      mostrarExito(
-        respuesta
-      );
-
-      cargarResumen();
-
-      return;
-
-    }
-
-
-    /*
-     * Si otro dispositivo la confirmó
-     * prácticamente al mismo tiempo.
-     */
-    if (
-      respuesta &&
-      respuesta.tipo ===
-        'USADO'
-    ) {
-
-      mostrarUsado(
-        respuesta
-      );
-
-      cargarResumen();
-
-      return;
-
-    }
-
-
-    /*
-     * QR inválido.
-     */
-    if (
-      respuesta &&
-      respuesta.tipo ===
-        'INVALIDO'
-    ) {
-
-      ocultarPantallas();
-
-      mostrarPantalla(
-        'invalid'
-      );
-
-      return;
-
-    }
-
-
-    /*
-     * Respuesta inesperada:
-     * comprobamos el estado real.
-     */
-    await comprobarDespuesDeConfirmar();
-
-
-  } catch (error) {
-
-    console.warn(
-      'No llegó respuesta de confirmación. Verificando estado real...',
-      error
-    );
-
-
-    /*
-     * MUY IMPORTANTE:
-     *
-     * No mostramos ERROR todavía.
-     *
-     * Puede haber ocurrido exactamente
-     * lo que ocurrió con Francisco:
-     *
-     * Google registró la entrada pero
-     * Safari no recibió la respuesta.
-     */
-    await comprobarDespuesDeConfirmar();
-
-
-  } finally {
-
-    boton.disabled = false;
-
-    boton.textContent =
-      '✓ CONFIRMAR ENTRADA';
-
-  }
-
-}
-
-
-/************************************************************
- * VERIFICACIÓN DE SEGURIDAD
- *
- * Si se pierde la respuesta después de confirmar,
- * preguntamos al servidor cuál es el estado REAL
- * del QR antes de mostrar ningún error.
- ************************************************************/
-async function comprobarDespuesDeConfirmar() {
-
-  document
-    .getElementById(
-      'loadingText'
-    )
-    .textContent =
-      'Comprobando registro…';
-
-
-  mostrarPantalla(
-    'loading'
-  );
-
-
-  /*
-   * Pequeña espera para dar tiempo a Sheets
-   * a terminar de guardar.
-   */
-  await esperar(700);
-
-
-  try {
-
-    const comprobacion =
-      await api(
-        'validar',
-        {
-          token:
-            tokenActual
-        },
-        15000
-      );
-
-
-    /*
-     * Si ahora aparece como USADO,
-     * significa que la confirmación
-     * anterior SÍ se guardó.
-     */
-    if (
-      comprobacion &&
-      comprobacion.tipo ===
-        'USADO'
-    ) {
-
-      mostrarExito({
-
-        invitado:
-          comprobacion.invitado,
-
-        fechaEntrada:
-          comprobacion.fechaEntrada
-
-      });
-
-
-      cargarResumen();
-
-      return;
-
-    }
-
-
-    /*
-     * Si sigue siendo VÁLIDO,
-     * la entrada NO se registró.
-     */
-    if (
-      comprobacion &&
-      comprobacion.ok &&
-      comprobacion.tipo ===
         'VALIDO'
     ) {
 
-      ocultarPantallas();
-
-
       invitadoActual =
-        comprobacion.invitado;
+        respuesta.invitado;
 
 
       document
@@ -1555,47 +1359,42 @@ async function comprobarDespuesDeConfirmar() {
       );
 
 
-      alert(
-        'La entrada no llegó a registrarse. Pulsa CONFIRMAR ENTRADA de nuevo.'
-      );
-
       return;
 
     }
 
 
     if (
-      comprobacion &&
-      comprobacion.tipo ===
-        'INVALIDO'
+      respuesta &&
+      respuesta.tipo ===
+        'USADO'
     ) {
 
-      ocultarPantallas();
-
-      mostrarPantalla(
-        'invalid'
+      mostrarUsado(
+        respuesta
       );
+
 
       return;
 
     }
 
 
-    throw new Error(
-      'Respuesta desconocida.'
+    mostrarPantalla(
+      'invalid'
     );
 
 
   } catch (error) {
 
     console.error(
-      'No se pudo verificar el estado final:',
+      'Error validando:',
       error
     );
 
 
     mostrarError(
-      'No hemos podido comprobar si la entrada se registró. No confirmes otra vez hasta recuperar conexión.'
+      'No se pudo consultar la lista de invitados. Comprueba la conexión a Internet.'
     );
 
   }
@@ -1604,8 +1403,342 @@ async function comprobarDespuesDeConfirmar() {
 
 
 /************************************************************
- * PANTALLA DE ÉXITO
+ * CONFIRMAR ENTRADA
+ *
+ * IMPORTANTE:
+ *
+ * NO intentamos leer la respuesta de "confirmar".
+ *
+ * Safari estaba dando problemas con esa respuesta.
+ *
+ * Enviamos la orden mediante un iframe invisible y después
+ * preguntamos a Apps Script cuál es el estado REAL del QR.
  ************************************************************/
+
+async function confirmarEntrada() {
+
+  if (
+    confirmando ||
+    !tokenActual
+  ) {
+
+    return;
+
+  }
+
+
+  confirmando =
+    true;
+
+
+  const boton =
+    document.getElementById(
+      'confirmButton'
+    );
+
+
+  boton.disabled =
+    true;
+
+
+  boton.textContent =
+    'REGISTRANDO…';
+
+
+  ponerCargando(
+    'Registrando entrada…',
+    'No cierres esta pantalla.'
+  );
+
+
+  /*
+   * Construimos la misma URL que hemos probado
+   * manualmente en el ordenador y que sabemos
+   * que funciona.
+   */
+
+  const urlConfirmacion =
+    API_URL +
+    '?accion=confirmar' +
+    '&token=' +
+    encodeURIComponent(
+      tokenActual
+    ) +
+    '&_=' +
+    Date.now();
+
+
+  /*
+   * El iframe navega a Apps Script.
+   *
+   * No necesitamos leer su contenido.
+   */
+
+  const frame =
+    document.getElementById(
+      'confirmFrame'
+    );
+
+
+  frame.src =
+    urlConfirmacion;
+
+
+  /*
+   * Esperamos a que Apps Script y Sheets
+   * tengan tiempo de realizar la escritura.
+   */
+
+  await esperar(
+    1800
+  );
+
+
+  /*
+   * Ahora consultamos el estado REAL.
+   */
+
+  let resultado =
+    await comprobarEstadoFinal();
+
+
+  /*
+   * Si sigue apareciendo PENDIENTE,
+   * damos una segunda oportunidad a la orden.
+   *
+   * Esto NO provoca doble entrada porque el servidor
+   * ya protege los QR utilizados.
+   */
+
+  if (
+    resultado ===
+    'PENDIENTE'
+  ) {
+
+    ponerCargando(
+      'Terminando registro…',
+      'Comprobando el acceso.'
+    );
+
+
+    frame.src =
+      urlConfirmacion +
+      '&retry=' +
+      Date.now();
+
+
+    await esperar(
+      1800
+    );
+
+
+    resultado =
+      await comprobarEstadoFinal();
+
+  }
+
+
+  /*
+   * Si después de los intentos sigue pendiente,
+   * NO decimos que haya entrado.
+   */
+
+  if (
+    resultado ===
+    'PENDIENTE'
+  ) {
+
+    mostrarError(
+      'La entrada NO se ha registrado. El invitado sigue pendiente. Vuelve a intentarlo.'
+    );
+
+  }
+
+
+  boton.disabled =
+    false;
+
+
+  boton.textContent =
+    '✓ CONFIRMAR ENTRADA';
+
+
+  confirmando =
+    false;
+
+}
+
+
+/************************************************************
+ * COMPROBAR ESTADO REAL
+ ************************************************************/
+
+async function comprobarEstadoFinal() {
+
+  try {
+
+    const respuesta =
+      await api(
+        'validar',
+        {
+          token:
+            tokenActual
+        },
+        12000
+      );
+
+
+    /*
+     * USADO significa:
+     *
+     * el servidor ya tiene este QR como DENTRO.
+     *
+     * Como acabamos de enviar nosotros la confirmación,
+     * esto es ÉXITO.
+     */
+
+    if (
+      respuesta &&
+      respuesta.tipo ===
+        'USADO'
+    ) {
+
+      mostrarExito(
+        respuesta
+      );
+
+
+      cargarResumen();
+
+
+      return 'DENTRO';
+
+    }
+
+
+    /*
+     * Sigue siendo válido:
+     * todavía NO se ha registrado.
+     */
+
+    if (
+      respuesta &&
+      respuesta.ok === true &&
+      respuesta.tipo ===
+        'VALIDO'
+    ) {
+
+      return 'PENDIENTE';
+
+    }
+
+
+    if (
+      respuesta &&
+      respuesta.tipo ===
+        'INVALIDO'
+    ) {
+
+      mostrarPantalla(
+        'invalid'
+      );
+
+
+      return 'INVALIDO';
+
+    }
+
+
+    return 'ERROR';
+
+
+  } catch (error) {
+
+    console.error(
+      'Error comprobando estado:',
+      error
+    );
+
+
+    /*
+     * Hacemos una segunda consulta antes
+     * de declarar un problema.
+     */
+
+    await esperar(
+      1000
+    );
+
+
+    try {
+
+      const segunda =
+        await api(
+          'validar',
+          {
+            token:
+              tokenActual
+          },
+          12000
+        );
+
+
+      if (
+        segunda &&
+        segunda.tipo ===
+          'USADO'
+      ) {
+
+        mostrarExito(
+          segunda
+        );
+
+
+        cargarResumen();
+
+
+        return 'DENTRO';
+
+      }
+
+
+      if (
+        segunda &&
+        segunda.ok === true &&
+        segunda.tipo ===
+          'VALIDO'
+      ) {
+
+        return 'PENDIENTE';
+
+      }
+
+
+    } catch (segundoError) {
+
+      console.error(
+        segundoError
+      );
+
+    }
+
+
+    mostrarError(
+      'No podemos comprobar el estado del invitado. Comprueba la conexión antes de permitir el acceso.'
+    );
+
+
+    return 'ERROR';
+
+  }
+
+}
+
+
+/************************************************************
+ * ÉXITO
+ ************************************************************/
+
 function mostrarExito(
   respuesta
 ) {
@@ -1634,9 +1767,11 @@ function mostrarExito(
     )
     .textContent =
       respuesta.fechaEntrada
-        ? 'Registrado: ' +
-          respuesta.fechaEntrada
-        : 'Entrada registrada correctamente.';
+        ?
+        'Entrada registrada: ' +
+        respuesta.fechaEntrada
+        :
+        'Entrada registrada correctamente.';
 
 
   mostrarPantalla(
@@ -1649,7 +1784,11 @@ function mostrarExito(
   ) {
 
     navigator.vibrate(
-      [80, 50, 80]
+      [
+        80,
+        60,
+        80
+      ]
     );
 
   }
@@ -1658,13 +1797,19 @@ function mostrarExito(
 
 
 /************************************************************
- * PANTALLA QR USADO
+ * QR YA UTILIZADO
  ************************************************************/
+
 function mostrarUsado(
   respuesta
 ) {
 
   ocultarPantallas();
+
+
+  invitadoActual =
+    respuesta.invitado ||
+    null;
 
 
   document
@@ -1683,9 +1828,11 @@ function mostrarUsado(
     )
     .textContent =
       respuesta.fechaEntrada
-        ? 'Entrada registrada: ' +
-          respuesta.fechaEntrada
-        : 'Este acceso ya fue utilizado.';
+        ?
+        'Entrada registrada: ' +
+        respuesta.fechaEntrada
+        :
+        'Este QR ya fue utilizado.';
 
 
   mostrarPantalla(
@@ -1697,7 +1844,9 @@ function mostrarUsado(
     navigator.vibrate
   ) {
 
-    navigator.vibrate(300);
+    navigator.vibrate(
+      250
+    );
 
   }
 
@@ -1705,13 +1854,58 @@ function mostrarUsado(
 
 
 /************************************************************
+ * CARGANDO
+ ************************************************************/
+
+function ponerCargando(
+  titulo,
+  detalle
+) {
+
+  document
+    .getElementById(
+      'loadingText'
+    )
+    .textContent =
+      titulo;
+
+
+  document
+    .getElementById(
+      'loadingDetail'
+    )
+    .textContent =
+      detalle || '';
+
+
+  mostrarPantalla(
+    'loading'
+  );
+
+}
+
+
+/************************************************************
  * NAVEGACIÓN
  ************************************************************/
+
 function cancelar() {
 
-  tokenActual = '';
-  invitadoActual = null;
-  procesando = false;
+  tokenActual =
+    '';
+
+
+  invitadoActual =
+    null;
+
+
+  procesando =
+    false;
+
+
+  confirmando =
+    false;
+
 
   abrirCamara();
 
@@ -1720,22 +1914,56 @@ function cancelar() {
 
 function nuevoEscaneo() {
 
-  tokenActual = '';
-  invitadoActual = null;
-  procesando = false;
+  tokenActual =
+    '';
+
+
+  invitadoActual =
+    null;
+
+
+  procesando =
+    false;
+
+
+  confirmando =
+    false;
+
+
+  /*
+   * Limpiamos el iframe.
+   */
+
+  document
+    .getElementById(
+      'confirmFrame'
+    )
+    .src =
+      'about:blank';
+
 
   abrirCamara();
 
 }
 
 
-function mostrarPantalla(id) {
+/************************************************************
+ * PANTALLAS
+ ************************************************************/
+
+function mostrarPantalla(
+  id
+) {
 
   ocultarPantallas();
 
+
   document
-    .getElementById(id)
-    .style.display =
+    .getElementById(
+      id
+    )
+    .style
+    .display =
       'flex';
 
 }
@@ -1751,19 +1979,26 @@ function ocultarPantallas() {
     'invalid',
     'errorScreen'
   ]
-    .forEach(id => {
+  .forEach(
+    function(id) {
 
       document
-        .getElementById(id)
-        .style.display =
+        .getElementById(
+          id
+        )
+        .style
+        .display =
           'none';
 
-    });
+    }
+  );
 
 }
 
 
-function mostrarError(texto) {
+function mostrarError(
+  texto
+) {
 
   ocultarPantallas();
 
@@ -1783,26 +2018,40 @@ function mostrarError(texto) {
 }
 
 
+/************************************************************
+ * CERRAR CÁMARA
+ ************************************************************/
+
 function cerrarCamara() {
 
-  escaneando = false;
+  escaneando =
+    false;
 
 
-  if (stream) {
+  if (
+    stream
+  ) {
 
     stream
       .getTracks()
       .forEach(
-        track =>
-          track.stop()
+        function(track) {
+
+          track.stop();
+
+        }
       );
 
   }
 
 
-  stream = null;
+  stream =
+    null;
 
-  video.srcObject = null;
+
+  video.srcObject =
+    null;
+
 
   video.style.display =
     'none';
@@ -1812,7 +2061,8 @@ function cerrarCamara() {
     .getElementById(
       'overlay'
     )
-    .style.display =
+    .style
+    .display =
       'none';
 
 
@@ -1820,47 +2070,67 @@ function cerrarCamara() {
     .getElementById(
       'instruction'
     )
-    .style.display =
+    .style
+    .display =
       'none';
 
 }
 
 
+/************************************************************
+ * NOMBRE
+ ************************************************************/
+
 function nombreCompleto(
   invitado
 ) {
 
-  if (!invitado) {
+  if (
+    !invitado
+  ) {
+
     return '';
+
   }
 
 
   return (
     String(
-      invitado.nombre || ''
+      invitado.nombre ||
+      ''
     ) +
     ' ' +
     String(
-      invitado.apellidos || ''
+      invitado.apellidos ||
+      ''
     )
   )
-    .replace(
-      /\s+/g,
-      ' '
-    )
-    .trim();
+  .replace(
+    /\s+/g,
+    ' '
+  )
+  .trim();
 
 }
 
 
-function esperar(ms) {
+/************************************************************
+ * ESPERA
+ ************************************************************/
+
+function esperar(
+  milisegundos
+) {
 
   return new Promise(
-    resolve =>
+    function(resolve) {
+
       setTimeout(
         resolve,
-        ms
-      )
+        milisegundos
+      );
+
+    }
   );
 
 }
@@ -1869,6 +2139,7 @@ function esperar(ms) {
 /************************************************************
  * INICIO
  ************************************************************/
+
 cargarResumen();
 
 </script>
