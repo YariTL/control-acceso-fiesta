@@ -2,149 +2,769 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-  <title>Prueba de cámara</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <title>Prueba lector QR</title>
+
+  <!-- Librería de lectura QR -->
+  <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
 
   <style>
     * {
       box-sizing: border-box;
     }
 
-    body {
+    html, body {
       margin: 0;
-      min-height: 100vh;
-      background: #0b1020;
+      width: 100%;
+      min-height: 100%;
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+
+      background: #080d18;
       color: white;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+
+    .app {
+      min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      padding:
+        calc(18px + env(safe-area-inset-top))
+        20px
+        18px;
+
+      background: #080d18;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      opacity: .55;
+    }
+
+    h1 {
+      margin: 7px 0 0;
+      font-size: 30px;
+      line-height: 1.05;
+    }
+
+    .camera {
+      position: relative;
+      flex: 1;
+      min-height: 55vh;
+      overflow: hidden;
+      background: black;
+    }
+
+    #video {
+      display: none;
+      width: 100%;
+      height: 100%;
+      min-height: 55vh;
+      object-fit: cover;
+    }
+
+    .start {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+
+      padding: 30px;
+      text-align: center;
+      background: #080d18;
+    }
+
+    .icon {
+      margin-bottom: 15px;
+      font-size: 70px;
+    }
+
+    .start h2 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .start p {
+      max-width: 390px;
+      margin: 12px 0 28px;
+      color: #9ca3af;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .open-button {
+      width: 100%;
+      max-width: 400px;
+      min-height: 68px;
+
+      border: 0;
+      border-radius: 18px;
+
+      background: white;
+      color: #080d18;
+
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .overlay {
+      display: none;
+
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+
+      pointer-events: none;
+
       align-items: center;
       justify-content: center;
     }
 
-    .app {
-      width: 100%;
-      max-width: 700px;
-      padding: 24px;
+    .scan-area {
+      position: relative;
+
+      width: min(72vw, 350px);
+      height: min(72vw, 350px);
+    }
+
+    .corner {
+      position: absolute;
+      width: 65px;
+      height: 65px;
+    }
+
+    .tl {
+      top: 0;
+      left: 0;
+      border-top: 6px solid white;
+      border-left: 6px solid white;
+      border-radius: 18px 0 0 0;
+    }
+
+    .tr {
+      top: 0;
+      right: 0;
+      border-top: 6px solid white;
+      border-right: 6px solid white;
+      border-radius: 0 18px 0 0;
+    }
+
+    .bl {
+      bottom: 0;
+      left: 0;
+      border-bottom: 6px solid white;
+      border-left: 6px solid white;
+      border-radius: 0 0 0 18px;
+    }
+
+    .br {
+      bottom: 0;
+      right: 0;
+      border-bottom: 6px solid white;
+      border-right: 6px solid white;
+      border-radius: 0 0 18px 0;
+    }
+
+    .scan-line {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      top: 50%;
+
+      height: 3px;
+
+      background: white;
+      box-shadow: 0 0 14px rgba(255,255,255,.8);
+
+      animation: scan 2s ease-in-out infinite;
+    }
+
+    @keyframes scan {
+      0%, 100% {
+        transform: translateY(-120px);
+      }
+
+      50% {
+        transform: translateY(120px);
+      }
+    }
+
+    .instruction {
+      display: none;
+
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 24px;
+      z-index: 6;
+
+      padding: 13px 16px;
+
+      border-radius: 999px;
+
+      background: rgba(0,0,0,.68);
+      backdrop-filter: blur(8px);
+
+      text-align: center;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .result {
+      display: none;
+
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+
+      padding:
+        calc(30px + env(safe-area-inset-top))
+        22px
+        calc(30px + env(safe-area-inset-bottom));
+
+      background: #052e1a;
+
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+
       text-align: center;
     }
 
-    h1 {
-      font-size: 36px;
-      margin: 0 0 10px;
+    .result-icon {
+      width: 110px;
+      height: 110px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      margin-bottom: 20px;
+
+      border-radius: 50%;
+
+      background: white;
+      color: #166534;
+
+      font-size: 65px;
+      font-weight: 900;
     }
 
-    p {
-      color: #aeb6c8;
-      font-size: 17px;
-      line-height: 1.5;
-      margin-bottom: 28px;
+    .result-small {
+      margin-bottom: 8px;
+
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 2px;
+
+      opacity: .65;
     }
 
-    button {
+    .result h2 {
+      margin: 0;
+
+      font-size: 38px;
+      line-height: 1;
+    }
+
+    .qr-content {
       width: 100%;
-      min-height: 70px;
+      max-width: 550px;
+
+      margin-top: 30px;
+      padding: 20px;
+
+      border-radius: 18px;
+
+      background: rgba(255,255,255,.12);
+
+      font-family: monospace;
+      font-size: 16px;
+      line-height: 1.5;
+
+      word-break: break-all;
+    }
+
+    .again {
+      width: 100%;
+      max-width: 450px;
+      min-height: 68px;
+
+      margin-top: 30px;
+
       border: 0;
       border-radius: 18px;
+
       background: white;
-      color: #0b1020;
-      font-size: 20px;
+      color: #052e1a;
+
+      font-size: 18px;
       font-weight: 900;
-      cursor: pointer;
     }
 
-    video {
+    .error {
       display: none;
-      width: 100%;
-      height: 65vh;
-      margin-top: 22px;
-      border-radius: 22px;
-      background: black;
-      object-fit: cover;
+
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+
+      padding: 30px;
+
+      background: #080d18;
+
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+
+      text-align: center;
     }
 
-    #estado {
-      margin-top: 18px;
-      font-size: 16px;
-      font-weight: 700;
+    .error strong {
+      font-size: 25px;
+    }
+
+    .error p {
+      max-width: 400px;
+
+      color: #9ca3af;
+      line-height: 1.5;
+    }
+
+    #canvas {
+      display: none;
     }
   </style>
 </head>
 
 <body>
 
-  <main class="app">
+<div class="app">
 
-    <h1>📷 Prueba de cámara</h1>
+  <header class="header">
 
-    <p>
-      Vamos a comprobar que este dispositivo puede utilizar
-      la cámara desde nuestra aplicación.
-    </p>
+    <div class="eyebrow">
+      CONTROL DE ACCESO
+    </div>
 
-    <button id="boton" onclick="abrirCamara()">
-      ABRIR CÁMARA
-    </button>
+    <h1>
+      Escáner QR
+    </h1>
 
-    <div id="estado"></div>
+  </header>
+
+
+  <main class="camera">
+
+    <div
+      id="start"
+      class="start"
+    >
+
+      <div class="icon">
+        🎟️
+      </div>
+
+      <h2>
+        Escanear invitación
+      </h2>
+
+      <p>
+        Abre la cámara y coloca uno de los QR
+        de prueba dentro del recuadro.
+      </p>
+
+      <button
+        class="open-button"
+        onclick="abrirCamara()"
+      >
+        📷 ABRIR CÁMARA
+      </button>
+
+    </div>
+
 
     <video
       id="video"
       autoplay
       muted
-      playsinline>
-    </video>
+      playsinline
+    ></video>
+
+
+    <div
+      id="overlay"
+      class="overlay"
+    >
+
+      <div class="scan-area">
+
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+
+        <div class="scan-line"></div>
+
+      </div>
+
+    </div>
+
+
+    <div
+      id="instruction"
+      class="instruction"
+    >
+      Coloca el QR dentro del recuadro
+    </div>
+
+
+    <div
+      id="error"
+      class="error"
+    >
+
+      <div style="font-size:55px; margin-bottom:15px;">
+        ⚠️
+      </div>
+
+      <strong>
+        No podemos iniciar el lector
+      </strong>
+
+      <p id="errorText"></p>
+
+      <button
+        class="open-button"
+        onclick="abrirCamara()"
+      >
+        VOLVER A INTENTAR
+      </button>
+
+    </div>
 
   </main>
 
+</div>
 
-  <script>
 
-    async function abrirCamara() {
+<div
+  id="result"
+  class="result"
+>
 
-      const estado = document.getElementById('estado');
-      const video = document.getElementById('video');
-      const boton = document.getElementById('boton');
+  <div class="result-icon">
+    ✓
+  </div>
 
-      estado.textContent = 'Solicitando acceso a la cámara...';
+  <div class="result-small">
+    QR DETECTADO
+  </div>
 
-      try {
+  <h2>
+    ¡LEÍDO!
+  </h2>
 
-        const stream =
-          await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-              facingMode: {
-                ideal: 'environment'
-              }
-            }
-          });
+  <div
+    id="qrContent"
+    class="qr-content"
+  ></div>
 
-        video.srcObject = stream;
+  <button
+    class="again"
+    onclick="escanearOtro()"
+  >
+    ESCANEAR OTRO QR
+  </button>
 
-        await video.play();
+</div>
 
-        video.style.display = 'block';
 
-        boton.style.display = 'none';
+<canvas id="canvas"></canvas>
 
-        estado.textContent = '✅ CÁMARA FUNCIONANDO';
+
+<script>
+
+  const video =
+    document.getElementById('video');
+
+  const canvas =
+    document.getElementById('canvas');
+
+  const ctx =
+    canvas.getContext(
+      '2d',
+      { willReadFrequently: true }
+    );
+
+  let stream = null;
+  let escaneando = false;
+  let procesando = false;
+
+
+  async function abrirCamara() {
+
+    procesando = false;
+
+    document.getElementById('error')
+      .style.display = 'none';
+
+    document.getElementById('start')
+      .style.display = 'none';
+
+    try {
+
+      if (
+        !navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia
+      ) {
+
+        throw new Error(
+          'Este navegador no permite acceder a la cámara.'
+        );
 
       }
 
-      catch (error) {
 
-        console.error(error);
+      stream =
+        await navigator.mediaDevices.getUserMedia({
 
-        estado.textContent =
-          '❌ No se pudo abrir la cámara: ' +
-          error.name;
+          audio: false,
+
+          video: {
+
+            facingMode: {
+              ideal: 'environment'
+            },
+
+            width: {
+              ideal: 1920
+            },
+
+            height: {
+              ideal: 1080
+            }
+
+          }
+
+        });
+
+
+      video.srcObject = stream;
+
+      await video.play();
+
+
+      video.style.display = 'block';
+
+      document.getElementById('overlay')
+        .style.display = 'flex';
+
+      document.getElementById('instruction')
+        .style.display = 'block';
+
+
+      escaneando = true;
+
+      requestAnimationFrame(leerFrame);
+
+    }
+
+    catch (error) {
+
+      console.error(error);
+
+      cerrarCamara();
+
+
+      const errorBox =
+        document.getElementById('error');
+
+      errorBox.style.display = 'flex';
+
+
+      document.getElementById('errorText')
+        .textContent =
+          error.message ||
+          'Comprueba los permisos de cámara del navegador.';
+
+    }
+
+  }
+
+
+  function leerFrame() {
+
+    if (
+      !escaneando ||
+      procesando
+    ) {
+      return;
+    }
+
+
+    if (
+      video.readyState ===
+      video.HAVE_ENOUGH_DATA
+    ) {
+
+      canvas.width =
+        video.videoWidth;
+
+      canvas.height =
+        video.videoHeight;
+
+
+      ctx.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+
+      const imageData =
+        ctx.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+
+      const code =
+        jsQR(
+          imageData.data,
+          imageData.width,
+          imageData.height,
+          {
+            inversionAttempts:
+              'dontInvert'
+          }
+        );
+
+
+      if (
+        code &&
+        code.data
+      ) {
+
+        qrDetectado(
+          code.data
+        );
+
+        return;
 
       }
 
     }
 
-  </script>
+
+    requestAnimationFrame(
+      leerFrame
+    );
+
+  }
+
+
+  function qrDetectado(valor) {
+
+    if (procesando) {
+      return;
+    }
+
+
+    procesando = true;
+
+    cerrarCamara();
+
+
+    document.getElementById('qrContent')
+      .textContent = valor;
+
+
+    document.getElementById('result')
+      .style.display = 'flex';
+
+
+    if (navigator.vibrate) {
+
+      navigator.vibrate(100);
+
+    }
+
+  }
+
+
+  function cerrarCamara() {
+
+    escaneando = false;
+
+
+    if (stream) {
+
+      stream
+        .getTracks()
+        .forEach(
+          track => track.stop()
+        );
+
+    }
+
+
+    stream = null;
+
+    video.srcObject = null;
+
+    video.style.display = 'none';
+
+
+    document.getElementById('overlay')
+      .style.display = 'none';
+
+    document.getElementById('instruction')
+      .style.display = 'none';
+
+  }
+
+
+  function escanearOtro() {
+
+    document.getElementById('result')
+      .style.display = 'none';
+
+    procesando = false;
+
+    abrirCamara();
+
+  }
+
+</script>
 
 </body>
 </html>
