@@ -1501,8 +1501,23 @@ async function confirmarEntrada() {
       respuesta.ok === true &&
       respuesta.tipo === 'ENTRADA_CONFIRMADA'
     ) {
-      mostrarExito(respuesta);
-      cargarResumen();
+      /*
+       * Verificación independiente antes de mostrar ADELANTE.
+       * No basta con que "confirmar" responda éxito:
+       * comprobamos de nuevo el estado real SIN requestId.
+       */
+      const persistido =
+        await verificarEntradaPersistida();
+
+      if (persistido) {
+        mostrarExito(respuesta);
+        cargarResumen();
+        return;
+      }
+
+      mostrarError(
+        'La entrada NO se ha registrado en la lista. Vuelve a intentarlo.'
+      );
       return;
     }
 
@@ -1570,6 +1585,43 @@ async function confirmarEntrada() {
     boton.disabled = false;
     boton.textContent = '✓ CONFIRMAR ENTRADA';
     confirmando = false;
+
+  }
+
+}
+
+
+async function verificarEntradaPersistida() {
+
+  try {
+
+    /*
+     * Se valida SIN requestId.
+     * Si el Sheet está realmente en DENTRO, el backend responde USADO.
+     * Si sigue PENDIENTE, responde VALIDO.
+     */
+    const comprobacion =
+      await api(
+        'validar',
+        {
+          token: tokenActual
+        },
+        12000
+      );
+
+    return !!(
+      comprobacion &&
+      comprobacion.tipo === 'USADO'
+    );
+
+  } catch (error) {
+
+    console.error(
+      'No se pudo verificar la escritura final:',
+      error
+    );
+
+    return false;
 
   }
 
