@@ -8,7 +8,16 @@
     content="width=device-width, initial-scale=1, viewport-fit=cover"
   >
 
-  <title>Control de acceso</title>
+  <title>Control Acceso</title>
+
+  <meta name="theme-color" content="#0d1525">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Control Acceso">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
 
   <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
 
@@ -837,6 +846,8 @@ let tokenActual = '';
 
 let invitadoActual = null;
 
+let requestIdActual = '';
+
 
 /************************************************************
  * API DE LECTURA
@@ -1328,7 +1339,9 @@ async function validarToken() {
         'validar',
         {
           token:
-            tokenActual
+            tokenActual,
+          requestId:
+            requestIdActual
         }
       );
 
@@ -1421,150 +1434,180 @@ async function confirmarEntrada() {
     confirmando ||
     !tokenActual
   ) {
-
     return;
-
   }
 
-
-  confirmando =
-    true;
-
+  confirmando = true;
 
   const boton =
     document.getElementById(
       'confirmButton'
     );
 
-
-  boton.disabled =
-    true;
-
-
-  boton.textContent =
-    'REGISTRANDO…';
-
+  boton.disabled = true;
+  boton.textContent = 'REGISTRANDO…';
 
   ponerCargando(
     'Registrando entrada…',
     'No cierres esta pantalla.'
   );
 
-
   /*
-   * Construimos la misma URL que hemos probado
-   * manualmente en el ordenador y que sabemos
-   * que funciona.
+   * Cada intento de acceso tiene un identificador único.
+   * El servidor guarda cuál fue el intento ganador.
+   * Así, si dos puertas confirman el mismo QR casi a la vez,
+   * solo el dispositivo ganador verá ADELANTE.
    */
+  requestIdActual = crearRequestId();
 
-  const urlConfirmacion =
-    API_URL +
-    '?accion=confirmar' +
-    '&token=' +
-    encodeURIComponent(
-      tokenActual
-    ) +
-    '&_=' +
-    Date.now();
+  try {
 
+    let respuesta =
+      await api(
+        'confirmar',
+        {
+          token: tokenActual,
+          puesto: obtenerPuesto(),
+          requestId: requestIdActual
+        },
+        15000
+      );
 
-  /*
-   * El iframe navega a Apps Script.
-   *
-   * No necesitamos leer su contenido.
-   */
+    /*
+     * Si la respuesta se pierde por un problema puntual de red,
+     * repetimos EXACTAMENTE el mismo intento. El backend es
+     * idempotente para el mismo requestId.
+     */
+    if (
+      !respuesta ||
+      respuesta.tipo === 'ERROR'
+    ) {
+      await esperar(700);
 
-  const frame =
-    document.getElementById(
-      'confirmFrame'
-    );
+      respuesta =
+        await api(
+          'confirmar',
+          {
+            token: tokenActual,
+            puesto: obtenerPuesto(),
+            requestId: requestIdActual
+          },
+          15000
+        );
+    }
 
+    if (
+      respuesta &&
+      respuesta.ok === true &&
+      respuesta.tipo === 'ENTRADA_CONFIRMADA'
+    ) {
+      mostrarExito(respuesta);
+      cargarResumen();
+      return;
+    }
 
-  frame.src =
-    urlConfirmacion;
+    if (
+      respuesta &&
+      respuesta.tipo === 'USADO'
+    ) {
+      mostrarUsado(respuesta);
+      cargarResumen();
+      return;
+    }
 
+    if (
+      respuesta &&
+      respuesta.tipo === 'INVALIDO'
+    ) {
+      mostrarPantalla('invalid');
+      return;
+    }
 
-  /*
-   * Esperamos a que Apps Script y Sheets
-   * tengan tiempo de realizar la escritura.
-   */
-
-  await esperar(
-    1800
-  );
-
-
-  /*
-   * Ahora consultamos el estado REAL.
-   */
-
-  let resultado =
-    await comprobarEstadoFinal();
-
-
-  /*
-   * Si sigue apareciendo PENDIENTE,
-   * damos una segunda oportunidad a la orden.
-   *
-   * Esto NO provoca doble entrada porque el servidor
-   * ya protege los QR utilizados.
-   */
-
-  if (
-    resultado ===
-    'PENDIENTE'
-  ) {
-
-    ponerCargando(
-      'Terminando registro…',
-      'Comprobando el acceso.'
-    );
-
-
-    frame.src =
-      urlConfirmacion +
-      '&retry=' +
-      Date.now();
-
-
-    await esperar(
-      1800
-    );
-
-
-    resultado =
+    /*
+     * Última comprobación: pregunta al servidor si ESTE
+     * requestId fue el que registró la entrada.
+     */
+    const estado =
       await comprobarEstadoFinal();
 
-  }
+    if (estado === 'DENTRO') {
+      return;
+    }
 
-
-  /*
-   * Si después de los intentos sigue pendiente,
-   * NO decimos que haya entrado.
-   */
-
-  if (
-    resultado ===
-    'PENDIENTE'
-  ) {
+    if (estado === 'USADO') {
+      return;
+    }
 
     mostrarError(
-      'La entrada NO se ha registrado. El invitado sigue pendiente. Vuelve a intentarlo.'
+      'No se pudo confirmar la entrada. Vuelve a intentarlo.'
     );
+
+  } catch (error) {
+
+    console.error(
+      'Error confirmando:',
+      error
+    );
+
+    /*
+     * No damos acceso por una suposición.
+     * Comprobamos si nuestro requestId fue el ganador.
+     */
+    const estado =
+      await comprobarEstadoFinal();
+
+    if (
+      estado !== 'DENTRO' &&
+      estado !== 'USADO'
+    ) {
+      mostrarError(
+        'No se pudo confirmar la entrada. Comprueba la conexión y vuelve a intentarlo.'
+      );
+    }
+
+  } finally {
+
+    boton.disabled = false;
+    boton.textContent = '✓ CONFIRMAR ENTRADA';
+    confirmando = false;
 
   }
 
-
-  boton.disabled =
-    false;
+}
 
 
-  boton.textContent =
-    '✓ CONFIRMAR ENTRADA';
+function crearRequestId() {
+
+  if (
+    window.crypto &&
+    typeof window.crypto.randomUUID === 'function'
+  ) {
+    return window.crypto.randomUUID();
+  }
+
+  return (
+    'req-' +
+    Date.now() +
+    '-' +
+    Math.random().toString(36).slice(2) +
+    '-' +
+    Math.random().toString(36).slice(2)
+  );
+
+}
 
 
-  confirmando =
-    false;
+function obtenerPuesto() {
+
+  const campo =
+    document.getElementById('puesto');
+
+  const valor =
+    campo && campo.value
+      ? String(campo.value).trim()
+      : '';
+
+  return valor || 'PUERTA 1';
 
 }
 
@@ -1581,152 +1624,59 @@ async function comprobarEstadoFinal() {
       await api(
         'validar',
         {
-          token:
-            tokenActual
+          token: tokenActual,
+          requestId: requestIdActual
         },
         12000
       );
 
-
-    /*
-     * USADO significa:
-     *
-     * el servidor ya tiene este QR como DENTRO.
-     *
-     * Como acabamos de enviar nosotros la confirmación,
-     * esto es ÉXITO.
-     */
-
     if (
       respuesta &&
-      respuesta.tipo ===
-        'USADO'
+      respuesta.ok === true &&
+      respuesta.tipo === 'ENTRADA_CONFIRMADA'
     ) {
-
-      mostrarExito(
-        respuesta
-      );
-
-
+      mostrarExito(respuesta);
       cargarResumen();
-
-
       return 'DENTRO';
-
     }
 
-
     /*
-     * Sigue siendo válido:
-     * todavía NO se ha registrado.
+     * USADO ya NO se interpreta como éxito.
+     * Significa que otro intento/dispositivo ganó.
      */
+    if (
+      respuesta &&
+      respuesta.tipo === 'USADO'
+    ) {
+      mostrarUsado(respuesta);
+      cargarResumen();
+      return 'USADO';
+    }
 
     if (
       respuesta &&
       respuesta.ok === true &&
-      respuesta.tipo ===
-        'VALIDO'
+      respuesta.tipo === 'VALIDO'
     ) {
-
       return 'PENDIENTE';
-
     }
-
 
     if (
       respuesta &&
-      respuesta.tipo ===
-        'INVALIDO'
+      respuesta.tipo === 'INVALIDO'
     ) {
-
-      mostrarPantalla(
-        'invalid'
-      );
-
-
+      mostrarPantalla('invalid');
       return 'INVALIDO';
-
     }
 
-
     return 'ERROR';
-
 
   } catch (error) {
 
     console.error(
-      'Error comprobando estado:',
+      'Error comprobando estado final:',
       error
     );
-
-
-    /*
-     * Hacemos una segunda consulta antes
-     * de declarar un problema.
-     */
-
-    await esperar(
-      1000
-    );
-
-
-    try {
-
-      const segunda =
-        await api(
-          'validar',
-          {
-            token:
-              tokenActual
-          },
-          12000
-        );
-
-
-      if (
-        segunda &&
-        segunda.tipo ===
-          'USADO'
-      ) {
-
-        mostrarExito(
-          segunda
-        );
-
-
-        cargarResumen();
-
-
-        return 'DENTRO';
-
-      }
-
-
-      if (
-        segunda &&
-        segunda.ok === true &&
-        segunda.tipo ===
-          'VALIDO'
-      ) {
-
-        return 'PENDIENTE';
-
-      }
-
-
-    } catch (segundoError) {
-
-      console.error(
-        segundoError
-      );
-
-    }
-
-
-    mostrarError(
-      'No podemos comprobar el estado del invitado. Comprueba la conexión antes de permitir el acceso.'
-    );
-
 
     return 'ERROR';
 
@@ -1915,6 +1865,9 @@ function cancelar() {
 function nuevoEscaneo() {
 
   tokenActual =
+    '';
+
+  requestIdActual =
     '';
 
 
@@ -2142,6 +2095,19 @@ function esperar(
 
 cargarResumen();
 
+</script>
+
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker
+        .register('./sw.js')
+        .catch(function(error) {
+          console.warn('Service Worker no disponible:', error);
+        });
+    });
+  }
 </script>
 
 </body>
