@@ -848,6 +848,18 @@ let invitadoActual = null;
 
 let requestIdActual = '';
 
+let detectorQR = null;
+
+if ('BarcodeDetector' in window) {
+  try {
+    detectorQR = new BarcodeDetector({
+      formats: ['qr_code']
+    });
+  } catch (error) {
+    detectorQR = null;
+  }
+}
+
 
 /************************************************************
  * API DE LECTURA
@@ -1154,6 +1166,36 @@ async function abrirCamara() {
     await video.play();
 
 
+    /*
+     * En Android intentamos mantener enfoque continuo.
+     * Si el dispositivo no lo admite, simplemente continúa.
+     */
+    try {
+      const track =
+        stream.getVideoTracks()[0];
+
+      const capabilities =
+        track.getCapabilities
+          ? track.getCapabilities()
+          : {};
+
+      if (
+        capabilities.focusMode &&
+        capabilities.focusMode.includes('continuous')
+      ) {
+        await track.applyConstraints({
+          advanced: [
+            {
+              focusMode: 'continuous'
+            }
+          ]
+        });
+      }
+    } catch (error) {
+      // No bloqueamos la cámara por una opción de enfoque.
+    }
+
+
     document
       .getElementById(
         'start'
@@ -1218,104 +1260,169 @@ async function abrirCamara() {
  * LEER QR
  ************************************************************/
 
-function leerFrame() {
+async function leerFrame() {
 
   if (
     !escaneando ||
     procesando
   ) {
-
     return;
+  }
+
+  try {
+
+    if (
+      video.readyState >=
+      video.HAVE_CURRENT_DATA
+    ) {
+
+      let datoQR = '';
+
+      /*
+       * En Chrome/Android usamos primero el detector QR nativo.
+       * Es mucho más fiable en algunos OPPO que procesar cada
+       * fotograma únicamente con jsQR.
+       */
+      if (detectorQR) {
+
+        try {
+
+          const codigos =
+            await detectorQR.detect(video);
+
+          if (
+            codigos &&
+            codigos.length &&
+            codigos[0].rawValue
+          ) {
+            datoQR =
+              String(
+                codigos[0].rawValue
+              ).trim();
+          }
+
+        } catch (error) {
+          // Si el detector nativo falla en un fotograma,
+          // seguimos con jsQR.
+        }
+
+      }
+
+
+      /*
+       * Fallback universal con jsQR.
+       */
+      if (
+        !datoQR &&
+        typeof jsQR === 'function' &&
+        video.videoWidth > 0 &&
+        video.videoHeight > 0
+      ) {
+
+        const maxWidth = 1280;
+
+        const scale =
+          Math.min(
+            1,
+            maxWidth / video.videoWidth
+          );
+
+        canvas.width =
+          Math.max(
+            1,
+            Math.round(
+              video.videoWidth * scale
+            )
+          );
+
+        canvas.height =
+          Math.max(
+            1,
+            Math.round(
+              video.videoHeight * scale
+            )
+          );
+
+        ctx.drawImage(
+          video,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        const imageData =
+          ctx.getImageData(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+
+        const code =
+          jsQR(
+            imageData.data,
+            imageData.width,
+            imageData.height,
+            {
+              inversionAttempts:
+                'attemptBoth'
+            }
+          );
+
+        if (
+          code &&
+          code.data
+        ) {
+          datoQR =
+            String(
+              code.data
+            ).trim();
+        }
+
+      }
+
+
+      if (datoQR) {
+
+        procesando = true;
+
+        tokenActual = datoQR;
+
+        cerrarCamara();
+
+        if (navigator.vibrate) {
+          navigator.vibrate(70);
+        }
+
+        validarToken();
+
+        return;
+      }
+
+    }
+
+  } catch (error) {
+
+    /*
+     * Un fotograma defectuoso no debe detener el lector.
+     */
+    console.warn(
+      'Fotograma QR omitido:',
+      error
+    );
 
   }
 
 
   if (
-    video.readyState ===
-    video.HAVE_ENOUGH_DATA
+    escaneando &&
+    !procesando
   ) {
-
-    canvas.width =
-      video.videoWidth;
-
-
-    canvas.height =
-      video.videoHeight;
-
-
-    ctx.drawImage(
-      video,
-      0,
-      0,
-      canvas.width,
-      canvas.height
+    requestAnimationFrame(
+      leerFrame
     );
-
-
-    const imageData =
-      ctx.getImageData(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-
-    const code =
-      jsQR(
-        imageData.data,
-        imageData.width,
-        imageData.height,
-        {
-          inversionAttempts:
-            'dontInvert'
-        }
-      );
-
-
-    if (
-      code &&
-      code.data
-    ) {
-
-      procesando =
-        true;
-
-
-      tokenActual =
-        String(
-          code.data
-        )
-        .trim();
-
-
-      cerrarCamara();
-
-
-      if (
-        navigator.vibrate
-      ) {
-
-        navigator.vibrate(
-          70
-        );
-
-      }
-
-
-      validarToken();
-
-
-      return;
-
-    }
-
   }
-
-
-  requestAnimationFrame(
-    leerFrame
-  );
 
 }
 
