@@ -1319,7 +1319,7 @@ async function leerFrame() {
         video.videoHeight > 0
       ) {
 
-        const maxWidth = 1280;
+        const maxWidth = 800;
 
         const scale =
           Math.min(
@@ -1609,22 +1609,20 @@ async function confirmarEntrada() {
       respuesta.tipo === 'ENTRADA_CONFIRMADA'
     ) {
       /*
-       * Verificación independiente antes de mostrar ADELANTE.
-       * No basta con que "confirmar" responda éxito:
-       * comprobamos de nuevo el estado real SIN requestId.
+       * Apps Script solo devuelve ENTRADA_CONFIRMADA después
+       * de escribir en el Sheet y ejecutar SpreadsheetApp.flush().
+       * No hacemos una segunda consulta bloqueante: actualizamos
+       * el contador en segundo plano para que recepción pueda seguir.
        */
-      const persistido =
-        await verificarEntradaPersistida();
+      mostrarExito(respuesta);
 
-      if (persistido) {
-        mostrarExito(respuesta);
-        cargarResumen();
-        return;
-      }
-
-      mostrarError(
-        'La entrada NO se ha registrado en la lista. Vuelve a intentarlo.'
+      setTimeout(
+        function () {
+          cargarResumen();
+        },
+        0
       );
+
       return;
     }
 
@@ -1692,43 +1690,6 @@ async function confirmarEntrada() {
     boton.disabled = false;
     boton.textContent = '✓ CONFIRMAR ENTRADA';
     confirmando = false;
-
-  }
-
-}
-
-
-async function verificarEntradaPersistida() {
-
-  try {
-
-    /*
-     * Se valida SIN requestId.
-     * Si el Sheet está realmente en DENTRO, el backend responde USADO.
-     * Si sigue PENDIENTE, responde VALIDO.
-     */
-    const comprobacion =
-      await api(
-        'validar',
-        {
-          token: tokenActual
-        },
-        12000
-      );
-
-    return !!(
-      comprobacion &&
-      comprobacion.tipo === 'USADO'
-    );
-
-  } catch (error) {
-
-    console.error(
-      'No se pudo verificar la escritura final:',
-      error
-    );
-
-    return false;
 
   }
 
