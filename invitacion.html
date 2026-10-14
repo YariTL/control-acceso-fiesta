@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -42,29 +43,77 @@
       <div class="content">
         <div class="eyebrow">Invitación personal</div>
         <div class="name" id="guest"></div>
-        <div class="qrbox"><div id="qr" aria-label="Código QR personal"></div></div>
-        <p class="hint">Presenta este código QR en el acceso.<br>Válido para una sola entrada.</p>
+        <div class="qrbox">
+          <div id="qr" aria-label="Código QR personal"></div>
+        </div>
+        <p class="hint">
+          Presenta este código QR en el acceso.<br>
+          Válido para una sola entrada.
+        </p>
       </div>
-      <footer class="foot"><strong>¡Te esperamos!</strong><br>Fiesta Audicost 2026 · Viernes, 16 de octubre<br>SHOKO Madrid · C. de Toledo, 86</footer>
+      <footer class="foot">
+        <strong>¡Te esperamos!</strong><br>
+        Fiesta Audicost 2026 · Viernes, 16 de octubre<br>
+        SHOKO Madrid · C. de Toledo, 86
+      </footer>
     </section>
-    <section class="error" id="error">Este enlace de invitación no es válido. Solicita tu enlace personal al organizador.</section>
-    <p class="note" id="note" hidden>Esta invitación es personal e intransferible. No compartas el enlace ni el código QR.</p>
+
+    <section class="error" id="error">
+      Este enlace de invitación no es válido.
+      Solicita tu enlace personal al organizador.
+    </section>
+
+    <p class="note" id="note" hidden>
+      Esta invitación es personal e intransferible.
+      No compartas el enlace ni el código QR.
+    </p>
   </main>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script>
     (function(){
-      const p=new URLSearchParams(location.search);
-      const token=(p.get('t')||'').trim();
-      const nombre=(p.get('n')||'').trim();
-      const apellidos=(p.get('a')||'').trim();
-      function fail(){document.getElementById('card').hidden=true;document.getElementById('error').style.display='block';}
-      if(!/^[0-9a-f]{64}$/i.test(token)||!nombre||!window.QRCode){fail();return;}
-      document.getElementById('guest').textContent=[nombre,apellidos].filter(Boolean).join(' ');
-      try{
-        new QRCode(document.getElementById('qr'),{text:token,width:220,height:220,colorDark:'#061d32',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-        document.getElementById('card').hidden=false;
-        document.getElementById('note').hidden=false;
-      }catch(e){fail();}
+      const p = new URLSearchParams(location.search);
+
+      const token = (p.get('t') || '').trim();
+      const nombre = (p.get('n') || '').trim();
+      const apellidos = (p.get('a') || '').trim();
+
+      function fail(){
+        document.getElementById('card').hidden = true;
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('note').hidden = true;
+      }
+
+      // El token es obligatorio.
+      // Nombre y apellidos son opcionales.
+      if (!/^[0-9a-f]{64}$/i.test(token) || !window.QRCode) {
+        fail();
+        return;
+      }
+
+      const nombreCompleto = [nombre, apellidos]
+        .filter(Boolean)
+        .join(' ');
+
+      document.getElementById('guest').textContent =
+        nombreCompleto || '¡Te esperamos!';
+
+      try {
+        new QRCode(document.getElementById('qr'), {
+          text: token,
+          width: 220,
+          height: 220,
+          colorDark: '#061d32',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+
+        document.getElementById('card').hidden = false;
+        document.getElementById('note').hidden = false;
+
+      } catch(e) {
+        fail();
+      }
     })();
   </script>
 </body>
