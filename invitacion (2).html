@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#069fe1">
+  <title>Fiesta Audicost 2026 · Invitación personal</title>
+  <style>
+    :root{--blue:#009fdf;--navy:#08284b;--ink:#15324a}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:linear-gradient(145deg,#edfaff,#fff 50%,#e5f6ff);font-family:Arial,Helvetica,sans-serif;color:var(--navy);display:flex;align-items:center;justify-content:center;padding:22px 12px}
+    .wrap{width:min(100%,460px)}
+    .card{position:relative;overflow:hidden;background:#fff;border-radius:25px;box-shadow:0 18px 55px #0a5b852b;border:1px solid #c8ebfc;text-align:center}
+    .top{background:linear-gradient(130deg,#00a9e8,#0076c5);color:white;padding:22px 20px 16px;position:relative}
+    .brand{font-size:14px;font-weight:800;letter-spacing:1.5px;opacity:.96}
+    .party{font-weight:1000;letter-spacing:4px;font-size:clamp(39px,12vw,61px);margin:5px 0 0;line-height:1;text-shadow:0 3px 0 #0875b5}
+    .year{font-size:19px;font-weight:800;letter-spacing:8px;margin-top:7px}
+    .mascots{display:block;width:160px;max-width:54%;height:80px;object-fit:contain;margin:8px auto -5px}
+    .content{padding:21px 24px 26px}
+    .eyebrow{font-size:12px;font-weight:800;letter-spacing:2px;color:#1685bd;text-transform:uppercase}
+    .name{font-size:clamp(23px,6vw,31px);font-weight:900;overflow-wrap:anywhere;margin:9px 0 18px}
+    .qrbox{width:fit-content;max-width:100%;margin:auto;padding:15px;border-radius:18px;border:2px solid #d9f0fd;background:white;box-shadow:0 5px 22px #0b719518}
+    #qr{width:220px;height:220px;display:flex;align-items:center;justify-content:center}
+    #qr img,#qr canvas{display:block;width:220px!important;height:220px!important;max-width:100%}
+    .hint{font-size:13px;margin:17px 0 0;line-height:1.5;color:#456477}
+    .foot{background:#e9f7ff;border-top:1px solid #cdefff;padding:17px 20px;font-size:13px;line-height:1.65}
+    .foot strong{font-size:16px;color:#006da8}
+    .note{font-size:12px;text-align:center;color:#627c8b;line-height:1.5;margin:15px 12px}
+    .error{display:none;background:white;border-radius:16px;padding:25px;text-align:center;color:#a12e37;box-shadow:0 5px 25px #0001}
+    @media(max-width:380px){#qr,#qr img,#qr canvas{width:195px!important;height:195px!important}.content{padding-left:15px;padding-right:15px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card" id="card" hidden>
+      <header class="top">
+        <div class="brand">audicost · FIESTA</div>
+        <div class="party">FIESTA</div>
+        <div class="year">2026</div>
+        <img class="mascots" src="./Fonitos.png" alt="Fonitos Audicost" onerror="this.style.display='none'">
+      </header>
+      <div class="content">
+        <div class="eyebrow">Invitación personal</div>
+        <div class="name" id="guest"></div>
+        <div class="qrbox"><div id="qr" aria-label="Código QR personal"></div></div>
+        <p class="hint">Presenta este código QR en el acceso.<br>Válido para una sola entrada.</p>
+      </div>
+      <footer class="foot"><strong>¡Te esperamos!</strong><br>Fiesta Audicost 2026 · Viernes, 16 de octubre<br>SHOKO Madrid · C. de Toledo, 86</footer>
+    </section>
+    <section class="error" id="error">Este enlace de invitación no es válido. Solicita tu enlace personal al organizador.</section>
+    <p class="note" id="note" hidden>Esta invitación es personal e intransferible. No compartas el enlace ni el código QR.</p>
+  </main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    (function(){
+      const p=new URLSearchParams(location.search);
+      const token=(p.get('t')||'').trim();
+      const nombre=(p.get('n')||'').trim();
+      const apellidos=(p.get('a')||'').trim();
+      function fail(){document.getElementById('card').hidden=true;document.getElementById('error').style.display='block';}
+      if(!/^[0-9a-f]{64}$/i.test(token)||!nombre||!window.QRCode){fail();return;}
+      document.getElementById('guest').textContent=[nombre,apellidos].filter(Boolean).join(' ');
+      try{
+        new QRCode(document.getElementById('qr'),{text:token,width:220,height:220,colorDark:'#061d32',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+        document.getElementById('card').hidden=false;
+        document.getElementById('note').hidden=false;
+      }catch(e){fail();}
+    })();
+  </script>
+</body>
+</html>
